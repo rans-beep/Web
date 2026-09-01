@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { exec } from 'child_process';
-import { promisify } from 'util';
 import { existsSync, mkdirSync, statSync, unlinkSync, readdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,7 +24,22 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const execAsync = promisify(exec);
+// ============================================
+// CUSTOM EXEC DENGAN TIMEOUT PANJANG
+// ============================================
+const execAsync = (cmd, options = {}) => {
+    return new Promise((resolve, reject) => {
+        exec(cmd, {
+            ...options,
+            timeout: 600000, // 10 menit
+            maxBuffer: 50 * 1024 * 1024 // 50MB buffer
+        }, (error, stdout, stderr) => {
+            if (error) reject(error);
+            else resolve({ stdout, stderr });
+        });
+    });
+};
+
 const tmpDir = path.join(__dirname, 'tmp');
 
 // Buat folder tmp
@@ -85,7 +99,7 @@ app.post('/api/download', async (req, res) => {
         console.log(`📥 Downloading from ${platform}: ${url}`);
         console.log(`🔧 Command: ${command}`);
 
-        await execAsync(command, { timeout: 300000 });
+        await execAsync(command);
 
         if (!existsSync(outputFile)) {
             return res.status(404).json({ success: false, error: 'Gagal download, coba link lain.' });
@@ -121,9 +135,20 @@ app.post('/api/download', async (req, res) => {
         if (existsSync(outputFile)) {
             try { unlinkSync(outputFile); } catch (e) {}
         }
+        
+        // Kirim pesan error yang lebih jelas
+        let errorMessage = error.message || 'Terjadi kesalahan saat download';
+        if (errorMessage.includes('yt-dlp')) {
+            errorMessage = 'yt-dlp tidak ditemukan. Pastikan sudah terinstall.';
+        } else if (errorMessage.includes('ffmpeg')) {
+            errorMessage = 'ffmpeg tidak ditemukan. Pastikan sudah terinstall.';
+        } else if (errorMessage.includes('Video not available')) {
+            errorMessage = 'Video tidak tersedia atau dihapus.';
+        }
+        
         res.status(500).json({
             success: false,
-            error: error.message || 'Terjadi kesalahan saat download'
+            error: errorMessage
         });
     }
 });
