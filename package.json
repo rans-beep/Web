@@ -1,11 +1,10 @@
 {
   "name": "rans-multi-downloader",
-  "version": "1.0.0",
-  "description": "Multi platform downloader - YouTube, TikTok, dll",
+  "version": "1.2.0",
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node --max-old-space-size=512 server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
